@@ -7,10 +7,9 @@ require 'fileutils'
 require 'date'
 require 'pathname'
 
-# DATABASE_PATH = '/var/www/mahryboutte.com/content/data/ghost.db'
-DATABASE_PATH = '/Users/aboutte/Desktop/ghost.db'.freeze
-DROPBOX_PATH = '/Users/aboutte/Documents/Dropbox/Family/mahryboutte.com'.freeze
-GHOST_CONTENT = '/Users/aboutte/Desktop/mahryboutte.com/content/images'.freeze
+DATABASE_PATH = '/var/www/mahryboutte.com/content/data/ghost.db'.freeze
+DROPBOX_PATH = '/home/aboutte/Dropbox/Family/mahryboutte.com'.freeze
+GHOST_CONTENT = '/var/www/mahryboutte.com/content/images'.freeze
 YEAR = Time.now.strftime('%Y').freeze
 MONTH = Time.now.strftime('%m').freeze
 
@@ -84,6 +83,7 @@ class MyCLI < Thor
 
       FileUtils::mkdir_p image[:ghost_directory]
       FileUtils.mv(jpg, "#{image[:ghost_directory]}/#{image[:filename]}")
+      FileUtils.chown 'ghost', 'ghost', image[:ghost_directory]
       post = DB[:posts].select.where(:slug=>image[:slug]).all[0]
       markdown = generate_updated_markdown(post[:markdown], image)
       html = generate_updated_html(post[:html], image)
