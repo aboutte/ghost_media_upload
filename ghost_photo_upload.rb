@@ -6,10 +6,14 @@ require 'thor'
 require 'fileutils'
 require 'date'
 require 'pathname'
+require 'rmagick'
+require 'aws-sdk-core'
 
 DATABASE_PATH = '/var/www/mahryboutte.com/content/data/ghost.db'.freeze
 DROPBOX_PATH = '/home/aboutte/Dropbox/Family/mahryboutte.com'.freeze
 GHOST_CONTENT = '/var/www/mahryboutte.com/content/images'.freeze
+S3 = Aws::S3::Client.new(region: 'us-west-2')
+S3_BUCKET = 'mahryboutte.com'.freeze
 YEAR = Time.now.strftime('%Y').freeze
 MONTH = Time.now.strftime('%m').freeze
 
@@ -17,6 +21,31 @@ DB = Sequel.connect("sqlite://#{DATABASE_PATH}")
 
 def get_ordered_directory_name(slug, counter)
   "#{DROPBOX_PATH}/#{counter}_#{slug}"
+end
+
+def auto_rotate_image(path)
+  img = Magick::Image.read(path)[0]
+  response = img.auto_orient!
+  img.write(path) unless response.nil?
+end
+
+def remap_tags_for_s3(tags)
+  remapped_tags = []
+  tags.each do |tag|
+    temp = {}
+    temp[:key] = tag[0].to_s
+    temp[:value] = tag[1]
+    remapped_tags << temp
+  end
+  remapped_tags
+end
+
+def remap_tags_from_s3(tags)
+  remapped_tags = {}
+  tags.each do |tag|
+    remapped_tags[tag.key.to_sym] = tag.value
+  end
+  remapped_tags
 end
 
 def get_slug_from_ordered_directory_name(directory_name)
@@ -36,6 +65,40 @@ end
 # this is the start of Thor
 class MyCLI < Thor
 
+  desc 'rotate_images', 'rotate_images'
+  def rotate_images
+    Dir['/var/www/mahryboutte.com/content/images/**/*.jpg'].each do |jpg|
+      puts "Working on image: #{jpg}"
+      auto_rotate_image(jpg)
+    end
+  end
+
+  desc 'sync_media_from_s3', 'pull media files from S3'
+  def sync_media_from_s3
+    s3_objects = S3.list_objects_v2({
+      bucket: S3_BUCKET,
+      max_keys: 1000,
+      prefix: 'processed/IMG'
+    }).contents
+    s3_objects.each do |object|
+      tags = S3.get_object_tagging({
+        bucket: S3_BUCKET,
+        key: object.key
+      }).tag_set
+      tags = remap_tags_from_s3(tags)
+
+      resp = S3.get_object(
+        response_target: "#{DROPBOX_PATH}/#{tags[:directory]}/#{tags[:filename]}",
+        bucket: S3_BUCKET,
+        key: object.key)
+
+      resp = S3.delete_object({
+        bucket: S3_BUCKET,
+        key: object.key
+      })
+    end
+  end
+
   # set cron to run this once per day
   desc 'sync_posts_to_directories', 'Get all post titles and make sure there is an associated directory'
   def sync_posts_to_directories
@@ -54,6 +117,7 @@ class MyCLI < Thor
     slugs.each do |slug|
       puts "Creating directory #{get_ordered_directory_name(slug, counter)}"
       FileUtils::mkdir_p get_ordered_directory_name(slug, counter)
+      FileUtils.chown 'aboutte', 'aboutte', get_ordered_directory_name(slug, counter)
       counter += 1
     end
 
@@ -72,22 +136,43 @@ class MyCLI < Thor
   def sync_media_to_posts
     puts 'Syncing images into posts'
 
-    videos = Dir["#{DROPBOX_PATH}/**/*.mov"]
+    # movies files are .mov if uploaded directly from iPhone to DropBox
+    # movies = Dir["#{DROPBOX_PATH}/**/*.mov"]
+    # movies files are .mp4 if imported into iPhoto and then transfered to DropBox
+    movies = Dir["#{DROPBOX_PATH}/**/*.mp4"]
+
+    movies.each do |mov|
+      mov_details = {}
+      mov_details[:filename] = File.basename(mov)
+      mov_details[:directory] = mov.split('/')[-2..-2][0]
+      mov_details[:slug] = get_slug_from_ordered_directory_name(mov_details[:directory])
+      mov_details[:ghost_directory] = "#{GHOST_CONTENT}/#{YEAR}/#{MONTH}"
+      File.open(mov, 'rb') do |file|
+        S3.put_object(bucket: S3_BUCKET, key: "queue/#{mov_details[:filename]}", body: file)
+        S3.put_object_tagging({bucket: S3_BUCKET,
+          key: "queue/#{mov_details[:filename]}",
+          tagging: {
+            tag_set: remap_tags_for_s3(mov_details)
+          }
+        })
+        FileUtils.rm(file)
+      end
+    end
 
     Dir["#{DROPBOX_PATH}/**/*.jpg"].each do |jpg|
-      image = {}
-      image[:filename] = File.basename(jpg)
-      image[:directory] = jpg.split('/')[-2..-2][0]
-      image[:slug] = get_slug_from_ordered_directory_name(image[:directory])
-      image[:ghost_directory] = "#{GHOST_CONTENT}/#{YEAR}/#{MONTH}"
+      jpg_details = {}
+      jpg_details[:filename] = File.basename(jpg)
+      jpg_details[:directory] = jpg.split('/')[-2..-2][0]
+      jpg_details[:slug] = get_slug_from_ordered_directory_name(jpg_details[:directory])
+      jpg_details[:ghost_directory] = "#{GHOST_CONTENT}/#{YEAR}/#{MONTH}"
 
-      FileUtils::mkdir_p image[:ghost_directory]
-      FileUtils.mv(jpg, "#{image[:ghost_directory]}/#{image[:filename]}")
-      FileUtils.chown 'ghost', 'ghost', image[:ghost_directory]
-      post = DB[:posts].select.where(:slug=>image[:slug]).all[0]
-      markdown = generate_updated_markdown(post[:markdown], image)
-      html = generate_updated_html(post[:html], image)
-      DB[:posts].where(:slug => image[:slug]).update(:markdown => markdown, :html => html)
+      FileUtils::mkdir_p jpg_details[:ghost_directory]
+      FileUtils.mv(jpg, "#{jpg_details[:ghost_directory]}/#{jpg_details[:filename]}")
+      FileUtils.chown 'ghost', 'ghost', jpg_details[:ghost_directory]
+      post = DB[:posts].select.where(:slug=>jpg_details[:slug]).all[0]
+      markdown = generate_updated_markdown(post[:markdown], jpg_details)
+      html = generate_updated_html(post[:html], jpg_details)
+      DB[:posts].where(:slug => jpg_details[:slug]).update(:markdown => markdown, :html => html)
     end
   end
 end
