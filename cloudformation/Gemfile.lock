@@ -1,0 +1,37 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    awesome_print (1.6.1)
+    aws-sdk (2.3.9)
+      aws-sdk-resources (= 2.3.9)
+    aws-sdk-core (2.3.9)
+      jmespath (~> 1.0)
+    aws-sdk-resources (2.3.9)
+      aws-sdk-core (= 2.3.9)
+    cloudformation-ruby-dsl (1.2.1)
+      aws-sdk
+      bundler
+      detabulator
+      diffy
+      highline
+      json
+      rake
+    detabulator (0.1.0)
+    diffy (3.1.0)
+    highline (1.7.8)
+    jmespath (1.2.4)
+      json_pure (>= 1.8.1)
+    json (1.8.3)
+    json_pure (1.8.3)
+    rake (11.1.2)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  awesome_print
+  aws-sdk
+  cloudformation-ruby-dsl
+
+BUNDLED WITH
+   1.10.4
