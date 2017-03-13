@@ -23,13 +23,13 @@ template do
 
   parameter 'LambdaS3Bucket',
             :Type => 'String',
-            :Description => 'The S3 bucket in which the lambda function code is stored'
+            :Description => 'The S3 bucket in which the lambda function code is stored',
             :Default => 'aboutte-lambda'
 
   parameter 'LambdaS3Key',
             :Type => 'String',
             :AllowedPattern => '.*\\.zip',
-            :Description => 'The S3 key for the lambda function code'
+            :Description => 'The S3 key for the lambda function code',
             :Default => 'aws-lambda-ffmpeg.zip'
 
   resource 'ExecutionRole', :Type => 'AWS::IAM::Role', :Properties => {
@@ -78,8 +78,8 @@ template do
       },
       :Role => get_att('ExecutionRole', 'Arn'),
       :Timeout => 60,
-      :Handler => 'aws/index.handler',
-      :Runtime => 'nodejs4.3',
+      :Handler => 'encode.handler',
+      :Runtime => 'python2.7',
       :MemorySize => 1536,
   }
 

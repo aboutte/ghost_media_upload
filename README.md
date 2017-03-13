@@ -1,3 +1,12 @@
+# steps for ffmpeg deployment
+- run the ./build.sh script
+- deploy cloudformation stack with following command:
+
+```
+bundle exec ./aws-lambda-ffmpeg.rb create --region us-west-2 --stack-name aws-lambda-ffmpeg-$(date '+%s') --disable-rollback 
+```
+
+
 # converting video files
 
 we can pull in the latest ffmpeg from here:
