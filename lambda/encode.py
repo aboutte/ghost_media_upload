@@ -4,6 +4,7 @@ these are my comments
 """
 
 from __future__ import print_function
+from pprint import pprint
 
 import json
 import boto3
@@ -12,9 +13,6 @@ import logging
 print('Loading function')
 
 s3 = boto3.client('s3')
-
-
-
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -53,8 +51,6 @@ def handler(event, context):
         print(e)
         print('Error getting object {} from bucket {}.'.format(request['key'], request['bucket']))
         raise e
-
-
 
 def encode(file):
     name = ''.join(file.split('.')[:-1])
