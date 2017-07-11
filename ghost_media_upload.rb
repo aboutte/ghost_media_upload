@@ -25,22 +25,10 @@ def get_ordered_directory_name(slug, counter)
   "#{DROPBOX_PATH}/#{counter}_#{slug}"
 end
 
-def auto_rotate_images
-
-  now = Time.now
-  year = now.year
-  month = now.strftime '%m'
-  day = now.strftime '%d'
-
-  pngs = Dir["#{GHOST_CONTENT}/#{year}/#{month}/**/*.png"]
-  jpgs = Dir["#{GHOST_CONTENT}/#{year}/#{month}/**/*.jpg"]
-  images = pngs + jpgs
-  images.each do |path|
-    puts "Working on image: #{path}"
-    img = Magick::Image.read(path)[0]
-    response = img.auto_orient!
-    img.write(path) unless response.nil?
-  end
+def auto_rotate_image(img)
+  img = Magick::Image.read(img)[0]
+  response = img.auto_orient!
+  img.write(path) unless response.nil?
 end
 
 def remap_tags_for_s3(tags)
@@ -109,8 +97,8 @@ class MyCLI < Thor
   desc 'sync_posts_to_directories', 'Get all post titles and make sure there is an associated directory'
   def sync_posts_to_directories
     puts 'Sync posts to directories'
-    # get the 10 most recently updated posts so we dont overwhelm who is using Dropbox
-    posts = DB[:posts].reverse_order(:updated_at).limit(10)
+    # get the 3 most recently updated posts so we dont overwhelm who is using Dropbox
+    posts = DB[:posts].reverse_order(:updated_at).limit(3)
 
     slugs = []
     # get slugs for each post
@@ -127,11 +115,12 @@ class MyCLI < Thor
       counter += 1
     end
 
-    # remove direcories if they are not in the 10 most recently updated
+    # remove directories if they are not in the 3 most recently updated
     dirs = Pathname.new(DROPBOX_PATH).children.select { |c| c.directory? }
     dirs.each do |dir|
       # if the directory name is included in list of slugs we need to keep it
       next if slugs.include? get_slug_from_ordered_directory_name(dir)
+      #TODO: the comparison needs to strip the order number for a clean comparison
       puts "Found dir that needs to be cleaned up: #{dir}"
       # Before deleting this dir make sure it is empty of images or videos
       FileUtils.rm_rf(dir) if (Dir.entries(dir) - %w{ . .. }).empty?
@@ -171,22 +160,23 @@ class MyCLI < Thor
     images = pngs + jpgs
     images.each do |img|
       puts "Found photo: #{img}"
-      jpg_details = {}
-      jpg_details[:filename] = File.basename(img)
-      jpg_details[:directory] = img.split('/')[-2..-2][0]
-      jpg_details[:slug] = get_slug_from_ordered_directory_name(jpg_details[:directory])
-      jpg_details[:ghost_directory] = "#{GHOST_CONTENT}/#{YEAR}/#{MONTH}"
+      details = {}
+      details[:source] = img
+      details[:destination] = "#{details[:ghost_directory]}/#{details[:filename]}"
+      details[:filename] = File.basename(img)
+      details[:directory] = img.split('/')[-2..-2][0]
+      details[:slug] = get_slug_from_ordered_directory_name(details[:directory])
+      details[:ghost_directory] = "#{GHOST_CONTENT}/#{YEAR}/#{MONTH}"
 
-      FileUtils::mkdir_p jpg_details[:ghost_directory]
-      FileUtils.mv(img, "#{jpg_details[:ghost_directory]}/#{jpg_details[:filename]}")
-      FileUtils.chown 'ghost', 'ghost', jpg_details[:ghost_directory]
-      post = DB[:posts].select.where(:slug=>jpg_details[:slug]).all[0]
-      markdown = generate_updated_markdown(post[:markdown], jpg_details)
-      html = generate_updated_html(post[:html], jpg_details)
-      DB[:posts].where(:slug => jpg_details[:slug]).update(:markdown => markdown, :html => html)
+      FileUtils::mkdir_p details[:ghost_directory]
+      FileUtils.mv(details[:source], details[:destination])
+      FileUtils.chown 'ghost', 'ghost', details[:ghost_directory]
+      post = DB[:posts].select.where(:slug=>details[:slug]).all[0]
+      markdown = generate_updated_markdown(post[:markdown], details)
+      html = generate_updated_html(post[:html], details)
+      DB[:posts].where(:slug => details[:slug]).update(:markdown => markdown, :html => html)
+      auto_rotate_image(details[:destination])
     end
-    puts 'Auto rotating images.'
-    auto_rotate_images
   end
 end
 
