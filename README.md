@@ -2,7 +2,11 @@
 
 ## Summary
 
+The ghost media sync script is used to push images and videos from mobile devices to a Ghost blog.
+
 ## Details
+
+Images for the most part are pushed as is.  The only exception is that iPhone devices don't do a good job with the orientation of images.  ghost media sync will correct the orientation automatically. 
 
 ## Usage
 
@@ -10,7 +14,7 @@
 - deploy cloudformation stack with following command:
 
 ```
-bundle exec ./aws-lambda-ffmpeg.rb create --region us-west-2 --stack-name aws-lambda-ffmpeg-$(date '+%s') --disable-rollback 
+bundle exec ./cloudformation/aws-lambda-ffmpeg.rb create --region us-west-2 --stack-name aws-lambda-ffmpeg-$(date '+%s') --disable-rollback 
 ```
 
 During development the following command can be useful to update a Lambda function to use a new copy of zip:

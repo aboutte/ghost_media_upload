@@ -9,7 +9,7 @@ cd $SCRIPT_DIR
 rm -rf lambda/aws-lambda-ffmpeg.zip
 mkdir -p lambda/bin
 
-# download the latest version of ffmpeg
+# TODO: download the latest version of ffmpeg
 
 cd lambda/
 zip -r aws-lambda-ffmpeg.zip *
