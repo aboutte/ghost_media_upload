@@ -52,8 +52,8 @@ template do
                   :Statement => [
                       {
                           :Effect => 'Allow',
-                          :Action => [ 'logs:*' ], # TODO
-                          :Resource => [ 'arn:aws:logs:*:*:*' ],
+                          :Action => [ 'logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents' ],
+                          :Resource => [ "arn:aws:logs:#{aws_region()}:*:*aws-lambda-ffmpeg*" ],
                       },
                       {
                           :Effect => 'Allow',
@@ -65,6 +65,12 @@ template do
                           :Action => 's3:PutObject',
                           :Resource => join('', 'arn:aws:s3:::', ref('DestinationBucketName'), '/*'),
                       },
+                      {
+                          :Effect => 'Allow',
+                          :Action => 's3:DeleteObject',
+                          :Resource => [ join('', 'arn:aws:s3:::', ref('SourceBucketName'), '/*'),
+                                         join('', 'arn:aws:s3:::', ref('DestinationBucketName'), '/*')]
+                      }
                   ],
               },
           },
@@ -77,7 +83,7 @@ template do
           :S3Key => ref('LambdaS3Key'),
       },
       :Role => get_att('ExecutionRole', 'Arn'),
-      :Timeout => 60,
+      :Timeout => 300,
       :Handler => 'encode.handler',
       :Runtime => 'python2.7',
       :MemorySize => 1536,

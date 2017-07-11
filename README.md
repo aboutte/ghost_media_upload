@@ -1,4 +1,11 @@
-# steps for ffmpeg deployment
+# Ghost Media Sync
+
+## Summary
+
+## Details
+
+## Usage
+
 - run the ./build.sh script
 - deploy cloudformation stack with following command:
 
@@ -6,14 +13,22 @@
 bundle exec ./aws-lambda-ffmpeg.rb create --region us-west-2 --stack-name aws-lambda-ffmpeg-$(date '+%s') --disable-rollback 
 ```
 
+During development the following command can be useful to update a Lambda function to use a new copy of zip:
 
-# converting video files
+```
+aws --region us-west-2 lambda   update-function-code --function-name aws-lambda-ffmpeg-1491169348-Lambda-XHVMDTCPHDCZ --s3-bucket aboutte-lambda --s3-key aws-lambda-ffmpeg.zip --publish
+```
 
-we can pull in the latest ffmpeg from here:
-https://github.com/binoculars/ffmpeg-build-lambda
+### Prerequisites
 
-this is a decent example of using ffmpeg in node.js
-https://github.com/binoculars/aws-lambda-ffmpeg
+### Install
+
+
+## TODO: 
+
+- [x] get Travis CI hooked up
+- [ ] setup some rake unit tests
+
 
 
 
@@ -36,6 +51,16 @@ https://www.digitalocean.com/community/tutorials/how-to-install-dropbox-client-a
 curl -Lo dropbox-linux-x86_64.tar.gz https://www.dropbox.com/download?plat=lnx.x86_64
 sudo mkdir -p /opt/dropbox
 sudo tar xzfv dropbox-linux-x86_64.tar.gz --strip 1 -C /opt/dropbox
+
+### Update DropBox 
+
+https://www.dropbox.com/install-linux
+
+Run the following commands as aboutte user
+
+cd ~ && wget -O - "https://www.dropbox.com/download?plat=lnx.x86_64" | tar xzf -
+~/.dropbox-dist/dropboxd
+
 
 
 # TODO:

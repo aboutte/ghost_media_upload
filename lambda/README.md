@@ -23,3 +23,8 @@ ffmpeg -i in.mov -vf "transpose=1" out.mov
 1 = 90Clockwise
 2 = 90CounterClockwise
 3 = 90Clockwise and Vertical Flip
+
+# converting video files
+
+we can pull in the latest ffmpeg from here:
+https://github.com/binoculars/ffmpeg-build-lambda

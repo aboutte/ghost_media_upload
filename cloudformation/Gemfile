@@ -1,5 +1,5 @@
 source 'https://rubygems.org'
 
-gem 'cloudformation-ruby-dsl'
-gem 'aws-sdk'
-gem 'awesome_print'
+gem 'cloudformation-ruby-dsl', '~> 1.4'
+gem 'aws-sdk', '~> 2.9'
+gem 'awesome_print', '~> 1.7'
