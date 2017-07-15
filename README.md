@@ -14,13 +14,14 @@ Images for the most part are pushed as is.  The only exception is that iPhone de
 - deploy cloudformation stack with following command:
 
 ```
-bundle exec ./cloudformation/aws-lambda-ffmpeg.rb create --region us-west-2 --stack-name aws-lambda-ffmpeg-$(date '+%s') --disable-rollback 
+cd cloudformation/
+bundle exec ./aws-lambda-ffmpeg.rb create --region us-west-2 --stack-name aws-lambda-ffmpeg-$(date '+%s') --disable-rollback 
 ```
 
 During development the following command can be useful to update a Lambda function to use a new copy of zip:
 
 ```
-aws --region us-west-2 lambda   update-function-code --function-name aws-lambda-ffmpeg-1491169348-Lambda-XHVMDTCPHDCZ --s3-bucket aboutte-lambda --s3-key aws-lambda-ffmpeg.zip --publish
+aws --region us-west-2 lambda update-function-code --function-name $(aws lambda list-functions --query 'Functions[0].FunctionName' --output text) --s3-bucket aboutte-lambda --s3-key aws-lambda-ffmpeg.zip --publish
 ```
 
 ### Prerequisites
@@ -32,6 +33,7 @@ aws --region us-west-2 lambda   update-function-code --function-name aws-lambda-
 
 - [x] get Travis CI hooked up
 - [ ] setup some rake unit tests
+- [x] flock the crons (flock -x /var/run/cron -c 'sleep 30')
 
 
 

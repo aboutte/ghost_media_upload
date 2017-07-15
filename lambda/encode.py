@@ -1,8 +1,3 @@
-
-"""
-these are my comments
-"""
-
 from __future__ import print_function
 from pprint import pprint
 
@@ -13,23 +8,9 @@ import os
 import boto3
 import urllib
 import logging
-print('Loading function')
 
 s3 = boto3.client('s3')
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-#-------------------------------------------------------------------------------
-# CONFIGURABLE SETTINGS
-#-------------------------------------------------------------------------------
-
-# path to ffmpeg bin
 FFMPEG = './bin/ffmpeg'
-
-
-#-------------------------------------------------------------------------------
-# encoding script
-#-------------------------------------------------------------------------------
 
 def handler(event, context):
     event = event['Records'][0]
@@ -38,11 +19,9 @@ def handler(event, context):
     request['bucket'] = event['s3']['bucket']['name']
     request['bucket_region'] = event['awsRegion']
     request['tmp_location'] = '/tmp/' + request['key']
-
-    print(request)
+    request['target_file_extension'] = 'mp4'
 
     try:
-        print("Using waiter to wait for object to persist thru s3 service")
         waiter = s3.get_waiter('object_exists')
         waiter.wait(Bucket=request['bucket'], Key=request['key'])
 
@@ -50,49 +29,55 @@ def handler(event, context):
         s3.download_file(request['bucket'], request['key'], request['tmp_location'])
         filename, file_extension = os.path.splitext(request['tmp_location'])
         request['file_extension'] = file_extension
-
-        if get_rotation(request) == 0:
-            print('No rotation needed')
-        else:
-            print("Rotation needed.  Rotation value was")
-            print(request['rotation'])
-            rotate(request)
-
-
-        get_dimensions(request)
-        print(request['dimensions']['width'])
-        print(request['dimensions']['height'])
-
-
-
-        s3.upload_file('/tmp/rotated.' + request['file_extension'], 'mahryboutte.com-processed', request['key'])
-        s3.delete_object(Bucket=request['bucket'], Key=request['key'])
-
     except Exception as e:
         print(e)
         print('Error getting object {} from bucket {}.'.format(request['key'], request['bucket']))
         raise e
 
-def encode(file):
-    name = ''.join(file.split('.')[:-1])
-    subtitles = 'temp.ass'.format(name)
-    output = '{}.mp4'.format(name)
+    # get_rotation will update the metadata in request
+    get_rotation(request)
+
+    if request['rotation'] != 0:
+        print("Rotation needed.  Rotation value was")
+        print(request['rotation'])
+        rotate(request)
+        shutil.move('/tmp/rotated.' + request['file_extension'], request['tmp_location'])
+
+
+    get_dimensions(request)
+    print(request['dimensions']['width'])
+    print(request['dimensions']['height'])
+
+    encode(request)
+
+    s3.upload_file('/tmp/output.mp4', 'mahryboutte.com-processed', request['key'])
+    s3.delete_object(Bucket=request['bucket'], Key=request['key'])
+
+def encode(request):
 
     try:
         command = [
-            FFMPEG_PATH, '-i', file,
-            '-c:v', 'libx264', '-tune', 'animation', '-preset', PRESET, '-profile:v', PROFILE, '-crf', CRF_VALUE,
+            FFMPEG,
+            '-i',
+            request['tmp_location'],
+            '-s',
+            '640x480',
+            '-c:v',
+            'libx264',
+            '-crf',
+            '25',
+            '-c:a',
+            'aac',
+            '-movflags',
+            'faststart',
+            '/tmp/output.mp4'
         ]
 
         subprocess.call(command)                # encode the video!
 
     finally:
         # always cleanup even if there are errors
-        subprocess.call(['rm', '-fr', 'attachments'])
-        subprocess.call(['rm', '-f', FONT_DIR])
-        subprocess.call(['rm', '-f', subtitles])
-
-
+        subprocess.call(['rm', '-rf', 'attachments'])
 
 def rotate(request):
     """
@@ -106,10 +91,10 @@ def rotate(request):
     Returns a new video file in /tmp/ directory
     """
 
-    unique_filename = '/tmp/rotated.' + request['file_extension']
+    rotated_filename = '/tmp/rotated.' + request['file_extension']
 
     # ffmpeg -i in.mov -vf "transpose=1" out.mov
-    cmd = "bin/ffmpeg -i " + request['tmp_location'] + " -vf transpose='" + str(request['rotation']) + "' " + unique_filename
+    cmd = "bin/ffmpeg -i " + request['tmp_location'] + " -vf transpose='" + str(request['rotation']) + "' " + rotated_filename
     print(cmd)
     args = shlex.split(cmd)
     print(args)

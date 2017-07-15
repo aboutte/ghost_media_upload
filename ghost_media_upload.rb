@@ -13,6 +13,7 @@ require 'time'
 DATABASE_PATH = '/var/www/mahryboutte.com/content/data/ghost.db'.freeze
 DROPBOX_PATH = '/home/aboutte/Dropbox/Family/mahryboutte.com'.freeze
 GHOST_CONTENT = '/var/www/mahryboutte.com/content/images'.freeze
+VIDEO_CONTENT = '/var/www/videos/'.freeze
 S3 = Aws::S3::Client.new(region: 'us-west-2')
 S3_BUCKET_QUEUE = 'mahryboutte.com-queue'.freeze
 S3_BUCKET_PROCESSED = 'mahryboutte.com-processed'.freeze
@@ -54,12 +55,22 @@ def get_slug_from_ordered_directory_name(directory_name)
   directory_name.to_s.split('_').last
 end
 
-def generate_updated_markdown(markdown, image)
+def generate_updated_img_markdown(markdown, image)
   markdown_string = "![](/content/images/#{YEAR}/#{MONTH}/#{image[:filename]})\n\n\n"
   markdown_string + markdown
 end
 
-def generate_updated_html(html, image)
+def generate_updated_img_html(html, image)
+  html_string = "<p><img src=\"/content/images/#{YEAR}/#{MONTH}/#{image[:filename]}\"/></p>\n\n"
+  html_string + html
+end
+
+def generate_updated_mov_markdown(markdown, image)
+  markdown_string = "![](/content/images/#{YEAR}/#{MONTH}/#{image[:filename]})\n\n\n"
+  markdown_string + markdown
+end
+
+def generate_updated_mov_html(html, image)
   html_string = "<p><img src=\"/content/images/#{YEAR}/#{MONTH}/#{image[:filename]}\"/></p>\n\n"
   html_string + html
 end
@@ -127,21 +138,21 @@ class MyCLI < Thor
     end
   end
 
-  desc 'sync_media_to_posts', 'Sync the images into the posts'
+  desc 'sync_media_to_posts', 'Sync media into the posts'
   def sync_media_to_posts
-    puts 'Syncing images into posts'
 
     # movies files are .mov if uploaded directly from iPhone to DropBox
     # movies = Dir["#{DROPBOX_PATH}/**/*.mov"]
-    # movies files are .m4v if imported into iPhoto and then transfered to DropBox
-    movies = Dir["#{DROPBOX_PATH}/**/*.m4v"]
+    # movies files are .m4v if imported into iPhoto and then transferred to DropBox
+    m4v = Dir["#{DROPBOX_PATH}/**/*.m4v"]
+    mov = Dir["#{DROPBOX_PATH}/**/*.mov"]
+    movies = m4v + mov
 
     movies.each do |mov|
       mov_details = {}
       mov_details[:filename] = File.basename(mov)
       mov_details[:directory] = mov.split('/')[-2..-2][0]
       mov_details[:slug] = get_slug_from_ordered_directory_name(mov_details[:directory])
-      mov_details[:ghost_directory] = "#{GHOST_CONTENT}/#{YEAR}/#{MONTH}"
       File.open(mov, 'rb') do |file|
         S3.put_object(bucket: S3_BUCKET_QUEUE, key: mov_details[:filename], body: file)
         S3.put_object_tagging({bucket: S3_BUCKET_QUEUE,
@@ -153,6 +164,28 @@ class MyCLI < Thor
         FileUtils.rm(file)
       end
     end
+
+    # If the video has been processed it will be an *.mp4 file
+    mp4 = Dir["#{DROPBOX_PATH}/**/*.mp4"]
+    mp4.each do |mov|
+      puts "Found movie: #{mov}"
+      details = {}
+      details[:source] = mov
+      details[:destination] = "#{VIDEO_CONTENT}/#{details[:filename]}"
+      details[:filename] = File.basename(mov)
+      details[:directory] = mov.split('/')[-2..-2][0]
+      details[:slug] = get_slug_from_ordered_directory_name(details[:directory])
+
+      FileUtils::mkdir_p details[:ghost_directory]
+      FileUtils.mv(details[:source], details[:destination])
+      FileUtils.chown 'ghost', 'ghost', details[:ghost_directory]
+      post = DB[:posts].select.where(:slug=>details[:slug]).all[0]
+      markdown = generate_updated_mov_markdown(post[:markdown], details)
+      html = generate_updated_mov_html(post[:html], details)
+      DB[:posts].where(:slug => details[:slug]).update(:markdown => markdown, :html => html)
+      auto_rotate_image(details[:destination])
+    end
+
 
     pngs = Dir["#{DROPBOX_PATH}/**/*.png"]
     jpgs = Dir["#{DROPBOX_PATH}/**/*.jpg"]
@@ -172,8 +205,8 @@ class MyCLI < Thor
       FileUtils.mv(details[:source], details[:destination])
       FileUtils.chown 'ghost', 'ghost', details[:ghost_directory]
       post = DB[:posts].select.where(:slug=>details[:slug]).all[0]
-      markdown = generate_updated_markdown(post[:markdown], details)
-      html = generate_updated_html(post[:html], details)
+      markdown = generate_updated_img_markdown(post[:markdown], details)
+      html = generate_updated_img_html(post[:html], details)
       DB[:posts].where(:slug => details[:slug]).update(:markdown => markdown, :html => html)
       auto_rotate_image(details[:destination])
     end
