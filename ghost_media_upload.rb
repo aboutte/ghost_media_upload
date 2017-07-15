@@ -153,6 +153,8 @@ class MyCLI < Thor
       mov_details[:filename] = File.basename(mov)
       mov_details[:directory] = mov.split('/')[-2..-2][0]
       mov_details[:slug] = get_slug_from_ordered_directory_name(mov_details[:directory])
+      ap remap_tags_for_s3(mov_details)
+      abort
       File.open(mov, 'rb') do |file|
         S3.put_object(bucket: S3_BUCKET_QUEUE, key: mov_details[:filename], body: file)
         S3.put_object_tagging({bucket: S3_BUCKET_QUEUE,
