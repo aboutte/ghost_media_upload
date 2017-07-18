@@ -31,9 +31,16 @@ aws --region us-west-2 lambda update-function-code --function-name $(aws lambda 
 
 ## TODO: 
 
+- [ ] update travis test case to include python syntax checker
 - [x] get Travis CI hooked up
 - [ ] setup some rake unit tests
 - [x] flock the crons (flock -x /var/run/cron -c 'sleep 30')
+- [x] add bash script to repo that can be used to pull down latest version of repo
+- [ ] finish support for .mov files
+- [ ] move hard coded configs into env variables
+- [ ] move to using cron files
+- [ ] run dropbox as a daemon
+- [ ] add requirments.txt to lambda function
 
 
 
@@ -66,15 +73,3 @@ Run the following commands as aboutte user
 
 cd ~ && wget -O - "https://www.dropbox.com/download?plat=lnx.x86_64" | tar xzf -
 ~/.dropbox-dist/dropboxd
-
-
-
-# TODO:
-- add bash script to repo that can be used to pull down latest version of repo
-- finish support for .mov files
-- move hard coded configs into env variables
-- move to using cron files
-- run dropbox as a daemon
-
-3 * * * * cd /home/aboutte/ghost_photo_upload/; /opt/chefdk/embedded/bin/bundle exec ghost_photo_upload.rb sync_posts_to_directories  >> /var/log/ghost_photo_upload.log 2>&1
-*/5 * * * * cd /home/aboutte/ghost_photo_upload/; /opt/chefdk/embedded/bin/bundle exec ghost_photo_upload.rb sync_media_to_posts >> /var/log/ghost_photo_upload.log 2>&1

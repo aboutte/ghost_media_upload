@@ -57,12 +57,12 @@ template do
                       },
                       {
                           :Effect => 'Allow',
-                          :Action => 's3:GetObject',
+                          :Action => ['s3:GetObject', 's3:GetObjectTagging'],
                           :Resource => join('', 'arn:aws:s3:::', ref('SourceBucketName'), '/*'),
                       },
                       {
                           :Effect => 'Allow',
-                          :Action => 's3:PutObject',
+                          :Action => ['s3:PutObject', 's3:PutObjectTagging']
                           :Resource => join('', 'arn:aws:s3:::', ref('DestinationBucketName'), '/*'),
                       },
                       {

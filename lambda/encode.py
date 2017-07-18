@@ -8,6 +8,7 @@ import os
 import boto3
 import urllib
 import logging
+import shutil
 
 s3 = boto3.client('s3')
 FFMPEG = './bin/ffmpeg'
@@ -27,6 +28,8 @@ def handler(event, context):
 
         # Download the file from S3
         s3.download_file(request['bucket'], request['key'], request['tmp_location'])
+        request['tags'] = s3.get_object_tagging(Bucket=request['bucket'], Key=request['key'])
+        print("the s3 object tags are", request['tags'])
         filename, file_extension = os.path.splitext(request['tmp_location'])
         request['file_extension'] = file_extension
     except Exception as e:
@@ -38,10 +41,8 @@ def handler(event, context):
     get_rotation(request)
 
     if request['rotation'] != 0:
-        print("Rotation needed.  Rotation value was")
-        print(request['rotation'])
-        rotate(request)
-        shutil.move('/tmp/rotated.' + request['file_extension'], request['tmp_location'])
+        print("Rotation needed.  Rotation value was:", request['rotation'])
+        #rotate(request)
 
 
     get_dimensions(request)
@@ -51,9 +52,13 @@ def handler(event, context):
     encode(request)
 
     s3.upload_file('/tmp/output.mp4', 'mahryboutte.com-processed', request['key'])
+    tags = {}
+    tags['TagSet'] = request['tags']['TagSet']
+    s3.put_object_tagging(Bucket='mahryboutte.com-processed', Key=request['key'], Tagging=tags)
     s3.delete_object(Bucket=request['bucket'], Key=request['key'])
 
 def encode(request):
+    print("Starting encoding process...")
 
     try:
         command = [
@@ -73,7 +78,10 @@ def encode(request):
             '/tmp/output.mp4'
         ]
 
+        subprocess.call(['rm', '-rf', '/tmp/output.mp4'])
+
         subprocess.call(command)                # encode the video!
+        print("Encoding process complete.")
 
     finally:
         # always cleanup even if there are errors
@@ -91,15 +99,20 @@ def rotate(request):
     Returns a new video file in /tmp/ directory
     """
 
-    rotated_filename = '/tmp/rotated.' + request['file_extension']
+    rotated_filename = '/tmp/rotated' + request['file_extension']
+
+    try:
+        os.remove(rotated_filename)
+    except OSError:
+        pass
 
     # ffmpeg -i in.mov -vf "transpose=1" out.mov
     cmd = "bin/ffmpeg -i " + request['tmp_location'] + " -vf transpose='" + str(request['rotation']) + "' " + rotated_filename
     print(cmd)
     args = shlex.split(cmd)
-    print(args)
-
     ffmpeg_output = subprocess.check_output(args).decode('utf-8')
+
+    shutil.move(rotated_filename, request['tmp_location'])
 
 
 def get_rotation(request):

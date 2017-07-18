@@ -65,25 +65,39 @@ def generate_updated_img_html(html, image)
   html_string + html
 end
 
-def generate_updated_mov_markdown(markdown, image)
+def generate_updated_mov_markdown(markdown, movie)
   markdown_string = "![](/content/images/#{YEAR}/#{MONTH}/#{image[:filename]})\n\n\n"
   markdown_string + markdown
 end
 
-def generate_updated_mov_html(html, image)
-  html_string = "<p><img src=\"/content/images/#{YEAR}/#{MONTH}/#{image[:filename]}\"/></p>\n\n"
+def generate_updated_mov_html(html, movie)
+  html_string = "<p><video src=\"https://www.mahryboutte.com/videos/#{movie[:clean_filename]}\" controls></video></p>\n\n"
   html_string + html
 end
-
+  
 # this is the start of Thor
 class MyCLI < Thor
+
+  desc 'auto_rotate_images', 'auto rotate directory of images'
+  method_option :path, required: true, desc: 'Subpath of images to auto rotate.  Ex: "2017/07"'
+  def auto_rotate_images
+
+    pngs = Dir["#{GHOST_CONTENT}/#{options[:path]}/*.png"]
+    jpgs = Dir["#{GHOST_CONTENT}/#{options[:path]}/*.jpg"]
+
+    images = pngs + jpgs
+    images.each do |img|
+      puts "Found photo: #{img}"
+      # auto_rotate_image(img)
+
+    end
+  end
 
   desc 'sync_media_from_s3', 'pull media files from S3'
   def sync_media_from_s3
     s3_objects = S3.list_objects_v2({
       bucket: S3_BUCKET_PROCESSED,
-      max_keys: 1000,
-      prefix: 'IMG'
+      max_keys: 1000
     }).contents
     s3_objects.each do |object|
       tags = S3.get_object_tagging({
@@ -93,7 +107,7 @@ class MyCLI < Thor
       tags = remap_tags_from_s3(tags)
 
       resp = S3.get_object(
-        response_target: "#{DROPBOX_PATH}/#{tags[:directory]}/#{tags[:filename]}",
+        response_target: "#{DROPBOX_PATH}/#{tags[:directory]}/#{tags[:clean_filename]}",
         bucket: S3_BUCKET_PROCESSED,
         key: object.key)
 
@@ -109,7 +123,7 @@ class MyCLI < Thor
   def sync_posts_to_directories
     puts 'Sync posts to directories'
     # get the 3 most recently updated posts so we dont overwhelm who is using Dropbox
-    posts = DB[:posts].reverse_order(:updated_at).limit(3)
+    posts = DB[:posts].reverse_order(:updated_at).limit(4)
 
     slugs = []
     # get slugs for each post
@@ -149,21 +163,14 @@ class MyCLI < Thor
     movies = m4v + mov
 
     movies.each do |mov|
+      puts "Uploading movie to S3: #{mov}"
       mov_details = {}
-      mov_details[:filename] = File.basename(mov)
-      mov_details[:clean_filename] = File.basename(mov).gsub(/\s+/, '')
+      # mov_details[:filename] = File.basename(mov)
+      mov_details[:clean_filename] = File.basename(mov).gsub(/\s+/, '').gsub(',', '')
       mov_details[:directory] = mov.split('/')[-2..-2][0]
       mov_details[:slug] = get_slug_from_ordered_directory_name(mov_details[:directory])
-      ap remap_tags_for_s3(mov_details)
-      abort
       File.open(mov, 'rb') do |file|
-        S3.put_object(bucket: S3_BUCKET_QUEUE, key: mov_details[:clean_filename], body: file)
-        S3.put_object_tagging({bucket: S3_BUCKET_QUEUE,
-          key: mov_details[:clean_filename],
-          tagging: {
-            tag_set: remap_tags_for_s3(mov_details)
-          }
-        })
+        S3.put_object(bucket: S3_BUCKET_QUEUE, key: mov_details[:clean_filename], body: file, tagging: remap_tags_for_s3(mov_details))
         FileUtils.rm(file)
       end
     end
@@ -174,19 +181,17 @@ class MyCLI < Thor
       puts "Found movie: #{mov}"
       details = {}
       details[:source] = mov
-      details[:destination] = "#{VIDEO_CONTENT}/#{details[:filename]}"
       details[:filename] = File.basename(mov)
+      details[:destination] = "#{VIDEO_CONTENT}/#{details[:filename]}"
       details[:directory] = mov.split('/')[-2..-2][0]
       details[:slug] = get_slug_from_ordered_directory_name(details[:directory])
 
-      FileUtils::mkdir_p details[:ghost_directory]
       FileUtils.mv(details[:source], details[:destination])
-      FileUtils.chown 'ghost', 'ghost', details[:ghost_directory]
+      FileUtils.chown 'ghost', 'ghost', details[:destination]
       post = DB[:posts].select.where(:slug=>details[:slug]).all[0]
       markdown = generate_updated_mov_markdown(post[:markdown], details)
       html = generate_updated_mov_html(post[:html], details)
       DB[:posts].where(:slug => details[:slug]).update(:markdown => markdown, :html => html)
-      auto_rotate_image(details[:destination])
     end
 
 
