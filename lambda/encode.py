@@ -20,7 +20,16 @@ def handler(event, context):
     request['bucket'] = event['s3']['bucket']['name']
     request['bucket_region'] = event['awsRegion']
     request['tmp_location'] = '/tmp/' + request['key']
+
+    # TODO: this assumes the object will always be at the root level
+    filename, file_extension = os.path.splitext(request['key'])
+    request['source_file_extension'] = file_extension
+    request['source_file_name'] = filename
+    request['source_file_name_with_extension'] = request['source_file_name'] + '.' + request['source_file_extension']
+
     request['target_file_extension'] = 'mp4'
+    request['target_file_name'] = request['source_file_name']
+    request['target_file_name_with_extension'] = request['source_file_name'] + '.' + request['target_file_extension']
 
     try:
         waiter = s3.get_waiter('object_exists')
@@ -51,10 +60,11 @@ def handler(event, context):
 
     encode(request)
 
-    s3.upload_file('/tmp/output.mp4', 'mahryboutte.com-processed', request['key'])
+    # TODO: update upload to include tags. no need to make two API calls and there is a race condition when we go to fetch the object from S3
     tags = {}
     tags['TagSet'] = request['tags']['TagSet']
-    s3.put_object_tagging(Bucket='mahryboutte.com-processed', Key=request['key'], Tagging=tags)
+    s3.upload_file('/tmp/output.mp4', 'mahryboutte.com-processed', request['target_file_name_with_extension'])
+    s3.put_object_tagging(Bucket='mahryboutte.com-processed', Key=request['target_file_name_with_extension'], Tagging=tags)
     s3.delete_object(Bucket=request['bucket'], Key=request['key'])
 
 def encode(request):

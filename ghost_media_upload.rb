@@ -32,15 +32,14 @@ def auto_rotate_image(path)
   img.write(path) unless response.nil?
 end
 
+# input: {"clean_filename":"VideoJul1535511PM.mov","directory":"3_month-22-videos","slug":"month-22-videos"}
+# return: "key1=value1&key2=value2"
 def remap_tags_for_s3(tags)
-  remapped_tags = []
+  tags_string = ''
   tags.each do |tag|
-    temp = {}
-    temp[:key] = tag[0].to_s
-    temp[:value] = tag[1]
-    remapped_tags << temp
+    tags_string = tags_string + "#{tag[0]}=#{tag[1]}&"
   end
-  remapped_tags
+  tags_string[0...-1]
 end
 
 def remap_tags_from_s3(tags)
@@ -66,12 +65,12 @@ def generate_updated_img_html(html, image)
 end
 
 def generate_updated_mov_markdown(markdown, movie)
-  markdown_string = "![](/content/images/#{YEAR}/#{MONTH}/#{image[:filename]})\n\n\n"
+  markdown_string = "<video src=\"https://www.mahryboutte.com/videos/#{movie[:target_filename]}\" controls></video>"
   markdown_string + markdown
 end
 
 def generate_updated_mov_html(html, movie)
-  html_string = "<p><video src=\"https://www.mahryboutte.com/videos/#{movie[:clean_filename]}\" controls></video></p>\n\n"
+  html_string = "<p><video src=\"https://www.mahryboutte.com/videos/#{movie[:target_filename]}\" controls></video></p>\n\n"
   html_string + html
 end
   
@@ -107,7 +106,7 @@ class MyCLI < Thor
       tags = remap_tags_from_s3(tags)
 
       resp = S3.get_object(
-        response_target: "#{DROPBOX_PATH}/#{tags[:directory]}/#{tags[:clean_filename]}",
+        response_target: "#{DROPBOX_PATH}/#{tags[:directory]}/#{object.key}",
         bucket: S3_BUCKET_PROCESSED,
         key: object.key)
 
@@ -165,8 +164,8 @@ class MyCLI < Thor
     movies.each do |mov|
       puts "Uploading movie to S3: #{mov}"
       mov_details = {}
-      # mov_details[:filename] = File.basename(mov)
       mov_details[:clean_filename] = File.basename(mov).gsub(/\s+/, '').gsub(',', '')
+      mov_details[:target_filename] = File.basename(mov_details[:clean_filename],File.extname(mov_details[:clean_filename])) + '.mp4'
       mov_details[:directory] = mov.split('/')[-2..-2][0]
       mov_details[:slug] = get_slug_from_ordered_directory_name(mov_details[:directory])
       File.open(mov, 'rb') do |file|
@@ -182,6 +181,7 @@ class MyCLI < Thor
       details = {}
       details[:source] = mov
       details[:filename] = File.basename(mov)
+      details[:target_filename] = File.basename(details[:filename],File.extname(details[:filename])) + '.mp4'
       details[:destination] = "#{VIDEO_CONTENT}/#{details[:filename]}"
       details[:directory] = mov.split('/')[-2..-2][0]
       details[:slug] = get_slug_from_ordered_directory_name(details[:directory])
