@@ -26,8 +26,8 @@ def get_ordered_directory_name(slug, counter)
   "#{DROPBOX_PATH}/#{counter}_#{slug}"
 end
 
-def auto_rotate_image(img)
-  img = Magick::Image.read(img)[0]
+def auto_rotate_image(path)
+  img = Magick::Image.read(path)[0]
   response = img.auto_orient!
   img.write(path) unless response.nil?
 end
@@ -88,7 +88,7 @@ class MyCLI < Thor
     images = pngs + jpgs
     images.each do |img|
       puts "Found photo: #{img}"
-      # auto_rotate_image(img)
+      auto_rotate_image(img)
 
     end
   end
