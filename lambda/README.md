@@ -1,7 +1,7 @@
 These are my notes regarding converting videos with ffmpeg:
 
 
-#### resolution convertion table
+#### resolution conversion table
 
 https://pacoup.com/2011/06/12/list-of-true-169-resolutions/
 
