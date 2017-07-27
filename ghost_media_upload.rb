@@ -203,11 +203,11 @@ class MyCLI < Thor
       puts "Found photo: #{img}"
       details = {}
       details[:source] = img
+      details[:ghost_directory] = "#{GHOST_CONTENT}/#{YEAR}/#{MONTH}"
       details[:destination] = "#{details[:ghost_directory]}/#{details[:filename]}"
       details[:filename] = File.basename(img)
       details[:directory] = img.split('/')[-2..-2][0]
       details[:slug] = get_slug_from_ordered_directory_name(details[:directory])
-      details[:ghost_directory] = "#{GHOST_CONTENT}/#{YEAR}/#{MONTH}"
 
       FileUtils::mkdir_p details[:ghost_directory]
       FileUtils.mv(details[:source], details[:destination])

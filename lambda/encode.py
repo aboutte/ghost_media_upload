@@ -55,9 +55,6 @@ def handler(event, context):
 
 
     get_dimensions(request)
-    print(request['dimensions']['width'])
-    print(request['dimensions']['height'])
-
     encode(request)
 
     # TODO: update upload to include tags. no need to make two API calls and there is a race condition when we go to fetch the object from S3
@@ -70,13 +67,20 @@ def handler(event, context):
 def encode(request):
     print("Starting encoding process...")
 
+    # horizontal - 1920 x 1080
+    # vertical - 1080 x 1920
+    if request['dimensions']['width'] > request['dimensions']['height']:
+        aspect_ration = '640x480'
+    else:
+        aspect_ration = '480x640'
+
     try:
         command = [
             FFMPEG,
             '-i',
             request['tmp_location'],
             '-s',
-            '640x480',
+            aspect_ration,
             '-c:v',
             'libx264',
             '-crf',
@@ -148,7 +152,6 @@ def get_dimensions(request):
     """
     Function to get the orientation of the input video file.
 
-    Returns a rotation None, 90, 180 or 270
     """
     request['dimensions'] = {}
     cmd = "bin/ffprobe -v error -print_format json -select_streams v:0 -show_entries stream=height,width"
