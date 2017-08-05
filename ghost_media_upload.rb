@@ -216,7 +216,7 @@ class MyCLI < Thor
       markdown = generate_updated_img_markdown(post[:markdown], details)
       html = generate_updated_img_html(post[:html], details)
       DB[:posts].where(:slug => details[:slug]).update(:markdown => markdown, :html => html)
-      auto_rotate_image(details[:destination])
+      auto_rotate_image(details[:destination] + details[:filename])
     end
   end
 end
