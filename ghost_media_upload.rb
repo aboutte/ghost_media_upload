@@ -45,9 +45,10 @@ class MyCLI < Thor
   desc 'sync_media_to_posts', 'Sync media into the posts'
   def sync_media_to_posts
 
+    abort unless Dir.exist?(INSTAGRAM_CONTENT)
+
     jpgs = Dir["#{INSTAGRAM_CONTENT}/**/*.jpg"]
     mp4s = Dir["#{INSTAGRAM_CONTENT}/**/*.mp4"]
-    # files = jpgs + mp4s
     files = mp4s + jpgs
 
     files.each do |file|
